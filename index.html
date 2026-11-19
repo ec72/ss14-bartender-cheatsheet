@@ -1,0 +1,3306 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SS14 Bartender's Nested Recipe Explorer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            nt: {
+              bg: '#0b101b',
+              panel: '#121a2b',
+              card: '#182238',
+              border: '#253352',
+              teal: '#2dd4bf',
+              cyan: '#38bdf8',
+              amber: '#fbbf24'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.35); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.55); }
+    .tree-branch {
+      position: relative;
+    }
+    .tree-branch::before {
+      content: "";
+      position: absolute;
+      left: 0.65rem;
+      top: 0;
+      bottom: 0.75rem;
+      width: 2px;
+      background: rgba(45, 212, 191, 0.25);
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-nt-bg dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-200">
+
+  <!-- Top Navigation & Utility Header -->
+  <header class="sticky top-0 z-30 bg-white/90 dark:bg-nt-panel/95 backdrop-blur-md border-b border-slate-200 dark:border-nt-border px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center text-teal-600 dark:text-nt-teal font-mono font-bold text-lg">
+          🍸
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg tracking-tight">Bartender's Nested Cheatsheet</h1>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btnThemeToggle" type="button" title="Toggle Light / Dark Theme" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-nt-card dark:hover:bg-slate-800 border border-slate-300 dark:border-nt-border transition text-sm">
+          <span id="themeIcon">☀️</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Active Customer Order Pinboard -->
+  <section class="bg-white dark:bg-nt-panel/60 border-b border-slate-200 dark:border-nt-border px-4 py-2.5">
+    <div class="max-w-7xl mx-auto flex items-center gap-2 overflow-x-auto">
+      <span class="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 shrink-0 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        Active Orders:
+      </span>
+      <div id="pinnedOrdersList" class="flex items-center gap-2 flex-nowrap"></div>
+    </div>
+  </section>
+
+  <!-- Main Workspace -->
+  <main class="max-w-7xl w-full mx-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 p-4 sm:p-6">
+
+    <!-- Left Sidebar: Search & Drink Index -->
+    <aside class="lg:col-span-4 xl:col-span-3 flex flex-col gap-3">
+      <div class="bg-white dark:bg-nt-panel rounded-2xl border border-slate-200 dark:border-nt-border p-3.5 shadow-xs flex flex-col gap-3">
+        <div class="relative">
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="Search drink or ingredient..."
+            class="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-100 dark:bg-nt-card border border-slate-200 dark:border-nt-border text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+          />
+          <span class="absolute left-3 top-2.5 text-slate-400 text-sm">🔍</span>
+          <button id="btnClearSearch" type="button" class="hidden absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm">✕</button>
+        </div>
+
+        <!-- Quick Filter Pills -->
+        <div class="flex flex-wrap gap-1.5 text-xs">
+          <button type="button" data-filter="all" class="filter-btn active px-2.5 py-1 rounded-lg font-medium bg-teal-500/15 text-teal-700 dark:text-nt-teal border border-teal-500/30">
+            All (<span id="countAll">0</span>)
+          </button>
+          <button type="button" data-filter="nested" class="filter-btn px-2.5 py-1 rounded-lg font-medium bg-slate-100 dark:bg-nt-card text-slate-600 dark:text-slate-400 border border-transparent hover:border-slate-300 dark:hover:border-nt-border">
+            Multi-Step (<span id="countNested">0</span>)
+          </button>
+          <button type="button" data-filter="base" class="filter-btn px-2.5 py-1 rounded-lg font-medium bg-slate-100 dark:bg-nt-card text-slate-600 dark:text-slate-400 border border-transparent hover:border-slate-300 dark:hover:border-nt-border">
+            1-Step (<span id="countBase">0</span>)
+          </button>
+        </div>
+
+        <!-- Drink List -->
+        <div id="drinkList" class="max-h-[42vh] lg:max-h-[65vh] overflow-y-auto space-y-1 pr-1"></div>
+      </div>
+    </aside>
+
+    <!-- Right Main Panel: Selected Drink & Inline Recursive Tree -->
+    <section class="lg:col-span-8 xl:col-span-9 flex flex-col gap-4">
+      <div id="recipeViewer" class="bg-white dark:bg-nt-panel rounded-2xl border border-slate-200 dark:border-nt-border p-5 sm:p-6 shadow-xs"></div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toastBox" class="fixed bottom-4 right-4 z-50 pointer-events-none opacity-0 translate-y-2 transition-all duration-200">
+    <div id="toastMessage" class="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-teal-600 text-white text-xs sm:text-sm font-medium shadow-lg"></div>
+  </div>
+
+  <script>
+    /**
+     * Exact Starlight Alpha Recipe Database (120 mixable drinks)
+     */
+    const RECIPES = {
+      "AcidSpit": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Wine",
+                        "amount": 2
+                  },
+                  {
+                        "name": "SulfuricAcid",
+                        "amount": 1
+                  }
+            ]
+      },
+      "AlienBrainHemorrhage": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "IrishCream",
+                        "amount": 1
+                  },
+                  {
+                        "name": "BlueCuracao",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "AlliesCocktail": {
+            "method": "Shake",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Martini",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Amasec": {
+            "method": "Shake",
+            "yield": 5,
+            "ingredients": [
+                  {
+                        "name": "Wine",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Iron",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Andalusia": {
+            "method": "Stir",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Antifreeze": {
+            "method": "",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Cream",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 2
+                  }
+            ]
+      },
+      "ArnoldPalmer": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "IcedTea",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Lemonade",
+                        "amount": 1
+                  }
+            ]
+      },
+      "AtomicBomb": {
+            "method": "",
+            "yield": 10,
+            "ingredients": [
+                  {
+                        "name": "B52",
+                        "amount": 10
+                  },
+                  {
+                        "name": "Uranium",
+                        "amount": 1
+                  }
+            ]
+      },
+      "B52": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cognac",
+                        "amount": 1
+                  },
+                  {
+                        "name": "IrishCarBomb",
+                        "amount": 1
+                  },
+                  {
+                        "name": "CoffeeLiqueur",
+                        "amount": 1
+                  }
+            ]
+      },
+      "BudgetInsulsDrink": {
+            "method": "",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Tequila",
+                        "amount": 1
+                  },
+                  {
+                        "name": "VodkaRedBool",
+                        "amount": 3
+                  }
+            ]
+      },
+      "BlueHawaiian": {
+            "method": "Shake",
+            "yield": 5,
+            "ingredients": [
+                  {
+                        "name": "CoconutRum",
+                        "amount": 2
+                  },
+                  {
+                        "name": "JuicePineapple",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 1
+                  },
+                  {
+                        "name": "BlueCuracao",
+                        "amount": 1
+                  }
+            ]
+      },
+      "CogChamp": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cognac",
+                        "amount": 1
+                  },
+                  {
+                        "name": "ScrewdriverCocktail",
+                        "amount": 1
+                  },
+                  {
+                        "name": "WeldingFuel",
+                        "amount": 1
+                  }
+            ]
+      },
+      "BahamaMama": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuicePineapple",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "CoconutRum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Barefoot": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cream",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vermouth",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceBerry",
+                        "amount": 1
+                  }
+            ]
+      },
+      "BananaHonk": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cream",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceBanana",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  }
+            ]
+      },
+      "BeepskySmash": {
+            "method": "Shake",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Iron",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  }
+            ]
+      },
+      "BlackRussian": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "CoffeeLiqueur",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 2
+                  }
+            ]
+      },
+      "BloodyMary": {
+            "method": "Stir",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceTomato",
+                        "amount": 3
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 2
+                  }
+            ]
+      },
+      "Booger": {
+            "method": "",
+            "yield": 5,
+            "ingredients": [
+                  {
+                        "name": "Cream",
+                        "amount": 2
+                  },
+                  {
+                        "name": "JuiceBanana",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceWatermelon",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  }
+            ]
+      },
+      "BraveBull": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "CoffeeLiqueur",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Tequila",
+                        "amount": 2
+                  }
+            ]
+      },
+      "Bronx": {
+            "method": "Shake",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Gin",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vermouth",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 1
+                  }
+            ]
+      },
+      "CafeLatte": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Coffee",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Milk",
+                        "amount": 1
+                  }
+            ]
+      },
+      "CoconutRum": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 2
+                  },
+                  {
+                        "name": "CoconutWater",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Cosmopolitan": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceBerry",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  }
+            ]
+      },
+      "CreamOfCoconut": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "CoconutWater",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Milk",
+                        "amount": 1
+                  }
+            ]
+      },
+      "CrushDepth": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "RootBeerFloat",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  }
+            ]
+      },
+      "CubaLibre": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  }
+            ]
+      },
+      "DarkandStormy": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "SolDry",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  }
+            ]
+      },
+      "DemonsBlood": {
+            "method": "Stir",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Blood",
+                        "amount": 1
+                  },
+                  {
+                        "name": "DrGibb",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SpaceMountainWind",
+                        "amount": 1
+                  }
+            ]
+      },
+      "DevilsKiss": {
+            "method": "Stir",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Blood",
+                        "amount": 1
+                  },
+                  {
+                        "name": "CoffeeLiqueur",
+                        "amount": 1
+                  }
+            ]
+      },
+      "DoctorsDelight": {
+            "method": "Stir",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Cream",
+                        "amount": 2
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceTomato",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Tricordrazine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "DriestMartini": {
+            "method": "Shake",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Gin",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Nothing",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Eggnog": {
+            "method": "Shake",
+            "yield": 10,
+            "ingredients": [
+                  {
+                        "name": "Egg",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Milk",
+                        "amount": 4
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 5
+                  }
+            ]
+      },
+      "ElectricShark": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "DarkandStormy",
+                        "amount": 4
+                  },
+                  {
+                        "name": "BlueCuracao",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuicePineapple",
+                        "amount": 1
+                  }
+            ]
+      },
+      "ErikaSurprise": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Ale",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceBanana",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  }
+            ]
+      },
+      "FourteenLoko": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Coffee",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  }
+            ]
+      },
+      "GargleBlaster": {
+            "method": "Shake",
+            "yield": 5,
+            "ingredients": [
+                  {
+                        "name": "Cognac",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Gin",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  }
+            ]
+      },
+      "GinFizz": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Gin",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SodaWater",
+                        "amount": 1
+                  }
+            ]
+      },
+      "GinTonic": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Gin",
+                        "amount": 1
+                  },
+                  {
+                        "name": "TonicWater",
+                        "amount": 2
+                  }
+            ]
+      },
+      "Gildlager": {
+            "method": "Shake",
+            "yield": 10,
+            "ingredients": [
+                  {
+                        "name": "Gold",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 10
+                  }
+            ]
+      },
+      "Grog": {
+            "method": "",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Water",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  }
+            ]
+      },
+      "HippiesDelight": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "GargleBlaster",
+                        "amount": 1
+                  },
+                  {
+                        "name": "THC",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Hooch": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Ethanol",
+                        "amount": 2
+                  },
+                  {
+                        "name": "WeldingFuel",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Enzyme",
+                        "amount": 1
+                  }
+            ]
+      },
+      "HotCocoa": {
+            "method": "Requires Heat (350K)",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Water",
+                        "amount": 1
+                  },
+                  {
+                        "name": "CocoaPowder",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IceCream": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cream",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IcedBeer": {
+            "method": "",
+            "yield": 5,
+            "ingredients": [
+                  {
+                        "name": "Beer",
+                        "amount": 5
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IcedBeerAlt": {
+            "method": "",
+            "yield": 10,
+            "ingredients": [
+                  {
+                        "name": "Beer",
+                        "amount": 10
+                  },
+                  {
+                        "name": "FrostOil",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IcedCoffee": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Coffee",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IcedGreenTea": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "GreenTea",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IcedTea": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Tea",
+                        "amount": 2
+                  }
+            ]
+      },
+      "IrishBool": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "EnergyDrink",
+                        "amount": 1
+                  },
+                  {
+                        "name": "IrishCarBomb",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IrishCarBomb": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Ale",
+                        "amount": 1
+                  },
+                  {
+                        "name": "IrishCream",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IrishCoffee": {
+            "method": "Stir",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Coffee",
+                        "amount": 1
+                  },
+                  {
+                        "name": "IrishCream",
+                        "amount": 1
+                  }
+            ]
+      },
+      "IrishCream": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cream",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 2
+                  }
+            ]
+      },
+      "JackRose": {
+            "method": "Shake",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "JuiceApple",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Cognac",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 1
+                  }
+            ]
+      },
+      "JungleBird": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 3
+                  },
+                  {
+                        "name": "JuicePineapple",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Kalimotxo": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Wine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "OrangeLimeSoda": {
+            "method": "Stir",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SodaWater",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Lemonade": {
+            "method": "Stir",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Water",
+                        "amount": 1
+                  }
+            ]
+      },
+      "LemonLime": {
+            "method": "Stir",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SodaWater",
+                        "amount": 1
+                  }
+            ]
+      },
+      "LongIslandIcedTea": {
+            "method": "Stir",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "CubaLibre",
+                        "amount": 3
+                  },
+                  {
+                        "name": "Gin",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Tequila",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Manhattan": {
+            "method": "Shake",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Whiskey",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Vermouth",
+                        "amount": 1
+                  }
+            ]
+      },
+      "ManhattanProject": {
+            "method": "",
+            "yield": 10,
+            "ingredients": [
+                  {
+                        "name": "Whiskey",
+                        "amount": 10
+                  },
+                  {
+                        "name": "Uranium",
+                        "amount": 1
+                  }
+            ]
+      },
+      "ManlyDorf": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Ale",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Beer",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Margarita": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Tequila",
+                        "amount": 2
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Martini": {
+            "method": "Shake",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Gin",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Vermouth",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Mead": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Enzyme",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Mojito": {
+            "method": "Shake",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SodaWater",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  }
+            ]
+      },
+      "MonkeyBusiness": {
+            "method": "Shake",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Gin",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Absinthe",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Moonshine": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Tequila",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  }
+            ]
+      },
+      "NuclearCola": {
+            "method": "",
+            "yield": 5,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 5
+                  },
+                  {
+                        "name": "Uranium",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Patron": {
+            "method": "Shake",
+            "yield": 10,
+            "ingredients": [
+                  {
+                        "name": "Tequila",
+                        "amount": 10
+                  },
+                  {
+                        "name": "Silver",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Painkiller": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "JuicePineapple",
+                        "amount": 3
+                  },
+                  {
+                        "name": "CoconutRum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 1
+                  },
+                  {
+                        "name": "CreamOfCoconut",
+                        "amount": 1
+                  }
+            ]
+      },
+      "PinaColada": {
+            "method": "",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "JuicePineapple",
+                        "amount": 3
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "CreamOfCoconut",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Posca": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "TableSalt",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vinegar",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Water",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Radler": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Lemonade",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Beer",
+                        "amount": 1
+                  }
+            ]
+      },
+      "RedMead": {
+            "method": "Stir",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Mead",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Blood",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Rewriter": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Coffee",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SpaceMountainWind",
+                        "amount": 1
+                  }
+            ]
+      },
+      "RootBeerFloat": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "RootBeer",
+                        "amount": 2
+                  },
+                  {
+                        "name": "IceCream",
+                        "amount": 1
+                  }
+            ]
+      },
+      "RoyRogers": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Rubberneck": {
+            "method": "",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "EnergyDrink",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Moonshine",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Sbiten": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  },
+                  {
+                        "name": "CapsaicinOil",
+                        "amount": 1
+                  }
+            ]
+      },
+      "ScrewdriverCocktail": {
+            "method": "Shake",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  }
+            ]
+      },
+      "ShirleyTemple": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "SolDry",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Silencer": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Nothing",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Cream",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  }
+            ]
+      },
+      "SnowWhite": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Beer",
+                        "amount": 1
+                  },
+                  {
+                        "name": "LemonLime",
+                        "amount": 1
+                  }
+            ]
+      },
+      "SoyLatte": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Coffee",
+                        "amount": 1
+                  },
+                  {
+                        "name": "MilkSoy",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Starkist": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 2
+                  }
+            ]
+      },
+      "SuiDream": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "SpaceUp",
+                        "amount": 1
+                  },
+                  {
+                        "name": "BlueCuracao",
+                        "amount": 1
+                  },
+                  {
+                        "name": "MelonLiquor",
+                        "amount": 1
+                  }
+            ]
+      },
+      "SyndicateBomb": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Beer",
+                        "amount": 1
+                  },
+                  {
+                        "name": "WhiskeyCola",
+                        "amount": 1
+                  }
+            ]
+      },
+      "TequilaSunrise": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Tequila",
+                        "amount": 2
+                  }
+            ]
+      },
+      "ThreeMileIsland": {
+            "method": "",
+            "yield": 10,
+            "ingredients": [
+                  {
+                        "name": "LongIslandIcedTea",
+                        "amount": 10
+                  },
+                  {
+                        "name": "Uranium",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Tortuga": {
+            "method": "Stir",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "IcedTea",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  }
+            ]
+      },
+      "ToxinsSpecial": {
+            "method": "Shake",
+            "yield": 5,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Vermouth",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Plasma",
+                        "amount": 2
+                  }
+            ]
+      },
+      "Vampiro": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "TequilaSunrise",
+                        "amount": 3
+                  },
+                  {
+                        "name": "BloodyMary",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Hotsauce",
+                        "amount": 1
+                  },
+                  {
+                        "name": "LemonLime",
+                        "amount": 1
+                  }
+            ]
+      },
+      "VodkaMartini": {
+            "method": "Shake",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Vermouth",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 2
+                  }
+            ]
+      },
+      "VodkaRedBool": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  },
+                  {
+                        "name": "EnergyDrink",
+                        "amount": 2
+                  }
+            ]
+      },
+      "VodkaTonic": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Vodka",
+                        "amount": 1
+                  },
+                  {
+                        "name": "TonicWater",
+                        "amount": 2
+                  }
+            ]
+      },
+      "WhiskeyCola": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  }
+            ]
+      },
+      "WatermelonWakeup": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceWatermelon",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  },
+                  {
+                        "name": "EnergyDrink",
+                        "amount": 1
+                  }
+            ]
+      },
+      "WhiteRussian": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "BlackRussian",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Cream",
+                        "amount": 1
+                  }
+            ]
+      },
+      "WhiskeySoda": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "SodaWater",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Whiskey",
+                        "amount": 1
+                  }
+            ]
+      },
+      "XenoBasher": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "ManlyDorf",
+                        "amount": 2
+                  },
+                  {
+                        "name": "EnergyDrink",
+                        "amount": 1
+                  }
+            ]
+      },
+      "HotRamen": {
+            "method": "Requires Heat (323.15K)",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "DryRamen",
+                        "amount": 5
+                  },
+                  {
+                        "name": "Water",
+                        "amount": 2
+                  }
+            ]
+      },
+      "Pilk": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Milk",
+                        "amount": 1
+                  }
+            ]
+      },
+      "TheMartinez": {
+            "method": "",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Cola",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Vodka",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 1
+                  }
+            ]
+      },
+      "WhiteGilgamesh": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Beer",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Milk",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Caipirinha": {
+            "method": "Shake",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Ice",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Daiquiri": {
+            "method": "Stir",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 4
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  }
+            ]
+      },
+      "DeathInTheAfternoon": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Absinthe",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Champagne",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Empress75": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Champagne",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Gin",
+                        "amount": 2
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "EspressoMartini": {
+            "method": "Shake",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "BlackRussian",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Coffee",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Mayojito": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "Mojito",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Mayo",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Mimeosa": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "Mimosa",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Nothing",
+                        "amount": 1
+                  }
+            ]
+      },
+      "Mimosa": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceOrange",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Champagne",
+                        "amount": 1
+                  }
+            ]
+      },
+      "MoscowMule": {
+            "method": "Stir",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Vodka",
+                        "amount": 4
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SolDry",
+                        "amount": 1
+                  }
+            ]
+      },
+      "TheSunAlsoRises": {
+            "method": "",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Absinthe",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Daiquiri",
+                        "amount": 5
+                  }
+            ]
+      },
+      "WhiskeySour": {
+            "method": "Shake",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Whiskey",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Sugar",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Egg",
+                        "amount": 1
+                  }
+            ]
+      },
+      "ZombieCocktail": {
+            "method": "",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Rum",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Grenadine",
+                        "amount": 1
+                  },
+                  {
+                        "name": "ZombieBlood",
+                        "amount": 1
+                  }
+            ]
+      },
+      "BacchusBlessing": {
+            "method": "",
+            "yield": 4,
+            "ingredients": [
+                  {
+                        "name": "Hooch",
+                        "amount": 1
+                  },
+                  {
+                        "name": "Absinthe",
+                        "amount": 1
+                  },
+                  {
+                        "name": "ManlyDorf",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SyndicateBomb",
+                        "amount": 1
+                  }
+            ]
+      }
+};
+
+    /**
+     * In-Game Display Names & Descriptions from alcohol.ftl
+     */
+    const LOCALE_MAP = {
+      "absinthe": {
+            "name": "absinthe",
+            "desc": "A anise-flavoured spirit derived from botanicals."
+      },
+      "ale": {
+            "name": "ale",
+            "desc": "A dark alchoholic beverage made by malted barley and yeast."
+      },
+      "beer": {
+            "name": "beer",
+            "desc": "An alcoholic beverage made from malted grains, hops, yeast, and water."
+      },
+      "blue-curacao": {
+            "name": "blue Curaçao",
+            "desc": "Exotically blue, fruity drink, distilled from oranges."
+      },
+      "cognac": {
+            "name": "cognac",
+            "desc": "A sweet and strongly alcoholic drink, twice distilled and left to mature for several years. Classy as fornication."
+      },
+      "dead-rum": {
+            "name": "deadrum",
+            "desc": "Distilled alcoholic drink made from saltwater."
+      },
+      "ethanol": {
+            "name": "ethanol",
+            "desc": "A simple alcohol, makes you drunk if consumed, flammable."
+      },
+      "gin": {
+            "name": "gin",
+            "desc": "A distilled alcoholic drink that derives its predominant flavour from juniper berries."
+      },
+      "coffeeliqueur": {
+            "name": "coffee liqueur",
+            "desc": "Liquor flavoured with cold brewed coffee and spices."
+      },
+      "melon-liquor": {
+            "name": "melon liquor",
+            "desc": "A relatively sweet and fruity 46 proof liquor."
+      },
+      "n-t-cahors": {
+            "name": "NeoTheology Cahors wine",
+            "desc": "Fortified dessert wine made from cabernet sauvignon, saperavi and other grapes."
+      },
+      "poison-wine": {
+            "name": "poison wine",
+            "desc": "Is this even wine? Toxic! Hallucinogenic! Probably consumed in boatloads by your superiors!"
+      },
+      "rum": {
+            "name": "rum",
+            "desc": "Distilled alcoholic drink made from sugarcane byproducts."
+      },
+      "sake": {
+            "name": "sake",
+            "desc": "Alcoholic beverage made by fermenting rice that has been polished."
+      },
+      "tequila": {
+            "name": "tequila",
+            "desc": "A strong and mildly flavoured, mexican produced spirit."
+      },
+      "vermouth": {
+            "name": "vermouth",
+            "desc": "Aromatized, fortified white wine flavored with various botanicals."
+      },
+      "vodka": {
+            "name": "vodka",
+            "desc": "Clear distilled alcoholic beverage that originates from Poland and Russia."
+      },
+      "whiskey": {
+            "name": "whiskey",
+            "desc": "A type of distilled alcoholic beverage made from fermented grain mash."
+      },
+      "wine": {
+            "name": "wine",
+            "desc": "A premium alcoholic beverage made from distilled grape juice."
+      },
+      "champagne": {
+            "name": "champagne",
+            "desc": "A premium sparkling wine"
+      },
+      "acid-spit": {
+            "name": "acidspit",
+            "desc": "A drink for the daring, can be deadly if incorrectly prepared!"
+      },
+      "alien-brain-hemorrhage": {
+            "name": "alien brain hemorrhage",
+            "desc": "You might want to get that checked out at Med."
+      },
+      "allies-cocktail": {
+            "name": "allies cocktail",
+            "desc": "A drink made from your allies, not as sweet as when made from your enemies."
+      },
+      "aloe": {
+            "name": "aloe",
+            "desc": "So very, very, very good."
+      },
+      "amasec": {
+            "name": "amasec",
+            "desc": "Official drink of the Gun Club!"
+      },
+      "andalusia": {
+            "name": "Andalusia",
+            "desc": "A nice, strangely named drink."
+      },
+      "antifreeze": {
+            "name": "antifreeze",
+            "desc": "Ultimate refreshment."
+      },
+      "atomic-bomb": {
+            "name": "Atomic Bomb",
+            "desc": "Nuclear proliferation never tasted so good."
+      },
+      "b52": {
+            "name": "B-52",
+            "desc": "Coffee, irish cream, and cognac. You will get bombed."
+      },
+      "blue-hawaiian": {
+            "name": "Blue Hawaiian",
+            "desc": "Aloha! Does that mean hello or goodbye?"
+      },
+      "bahama-mama": {
+            "name": "Bahama Mama",
+            "desc": "Tropical cocktail."
+      },
+      "banana-honk": {
+            "name": "Banana Honk",
+            "desc": "A drink from Clown Heaven."
+      },
+      "barefoot": {
+            "name": "barefoot",
+            "desc": "A cassis milkshake, made from cream, fruit juice, and vermouth wine."
+      },
+      "beepsky-smash": {
+            "name": "Beepsky smash",
+            "desc": "Deny drinking this and prepare for THE LAW."
+      },
+      "black-russian": {
+            "name": "Black Russian",
+            "desc": "For the lactose-intolerant. Still as classy as a White Russian."
+      },
+      "bloody-mary": {
+            "name": "Bloody Mary",
+            "desc": "A strange yet pleasurable mixture made of vodka, tomato, and lime juice."
+      },
+      "booger": {
+            "name": "booger",
+            "desc": "Ewww..."
+      },
+      "brave-bull": {
+            "name": "Brave Bull",
+            "desc": "It's just as effective as Dutch-Courage!"
+      },
+      "bronx": {
+            "name": "Bronx",
+            "desc": "The orange-flavoured cousin of the Manhattan and Martini."
+      },
+      "coconut-rum": {
+            "name": "coconut rum",
+            "desc": "Rum with coconut for that tropical feel."
+      },
+      "cosmopolitan": {
+            "name": "cosmopolitan",
+            "desc": "Even in the worst situations, nothing beats a fresh cosmopolitan."
+      },
+      "crush-depth": {
+            "name": "crush depth",
+            "desc": "A stygian drink, harkening back to the abyssopelagic. Dark and Cold, it serves as a reminder that the most ancient emotion is fear, and the strongest type of fear is that of the unknown."
+      },
+      "cuba-libre": {
+            "name": "Cuba libre",
+            "desc": "Rum, mixed with cola. Viva la revolucion."
+      },
+      "dark-and-stormy": {
+            "name": "dark & stormy",
+            "desc": "You can almost hear the thunder."
+      },
+      "demons-blood": {
+            "name": "Demon's Blood",
+            "desc": "AHHHH!!!!"
+      },
+      "devils-kiss": {
+            "name": "Devil's Kiss",
+            "desc": "Creepy time!"
+      },
+      "doctors-delight": {
+            "name": "The Doctor's Delight",
+            "desc": "A gulp a day keeps the MediBot away. That's probably for the best."
+      },
+      "driest-martini": {
+            "name": "driest martini",
+            "desc": "Only for the experienced. You think you see sand floating in the glass."
+      },
+      "eggnog": {
+            "name": "eggnog",
+            "desc": "Not enough egg."
+      },
+      "electric-shark": {
+            "name": "electric shark",
+            "desc": "Fun Shark fact: Selachians make up 20% of Space Station 16’s Engineering staff!"
+      },
+      "erika-surprise": {
+            "name": "Erika surprise",
+            "desc": "The surprise is, it's green!"
+      },
+      "gargle-blaster": {
+            "name": "Pan-Galactic Gargle Blaster",
+            "desc": "Whoah, this stuff looks volatile!"
+      },
+      "gin-fizz": {
+            "name": "gin fizz",
+            "desc": "Refreshingly lemony, deliciously dry."
+      },
+      "gin-tonic": {
+            "name": "gin and tonic",
+            "desc": "An all time classic, mild cocktail."
+      },
+      "gildlager": {
+            "name": "Gildlager",
+            "desc": "100 proof cinnamon schnapps, made for alcoholic teen girls on spring break."
+      },
+      "grog": {
+            "name": "grog",
+            "desc": "Watered-down rum, pirate approved!"
+      },
+      "hippies-delight": {
+            "name": "Hippie's Delight",
+            "desc": "You just don't get it maaaan."
+      },
+      "hooch": {
+            "name": "hooch",
+            "desc": "Either someone's failure at cocktail making or attempt in alchohol production. In any case, do you really want to drink that?"
+      },
+      "iced-beer": {
+            "name": "iced beer",
+            "desc": "A beer which is so cold the air around it freezes."
+      },
+      "irish-car-bomb": {
+            "name": "Irish car bomb",
+            "desc": "What's black and white and red all over?"
+      },
+      "irish-cream": {
+            "name": "Irish cream",
+            "desc": "Whiskey-imbued cream. What else could you expect from the Irish."
+      },
+      "irish-coffee": {
+            "name": "Irish coffee",
+            "desc": "Coffee served with irish cream. Regular cream just isn't the same!"
+      },
+      "jack-rose": {
+            "name": "Jack rose",
+            "desc": "Excessively Red."
+      },
+      "jungle-bird": {
+            "name": "jungle bird",
+            "desc": "Despite the name, it’s not exceptionally popular among Voxes."
+      },
+      "kalimotxo": {
+            "name": "kalimotxo",
+            "desc": "A high-class Cuba Libre, for the discerning alcoholic."
+      },
+      "tortuga": {
+            "name": "Tortuga",
+            "desc": "Perfect for pirates who’ve been selected as the designated driver. Yarr!"
+      },
+      "long-island-iced-tea": {
+            "name": "Long Island iced tea",
+            "desc": "The liquor cabinet, brought together in a delicious mix. Intended for middle-aged alcoholic women only."
+      },
+      "manhattan": {
+            "name": "Manhattan",
+            "desc": "The Detective's undercover drink of choice. He never could stomach gin..."
+      },
+      "manhattan-project": {
+            "name": "Manhattan Project",
+            "desc": "A scientist's drink of choice, for pondering ways to blow up the ship."
+      },
+      "manly-dorf": {
+            "name": "Manly Dorf",
+            "desc": "Beer and Ale, brought together in a delicious mix. Intended for stout dawi only."
+      },
+      "margarita": {
+            "name": "margarita",
+            "desc": "On the rocks with salt on the rim. Arriba~!"
+      },
+      "the-martinez": {
+            "name": "The Martinez",
+            "desc": "The edgerunner legend. Remembered by a drink, forgotten by a drunk."
+      },
+      "martini": {
+            "name": "classic martini",
+            "desc": "Vermouth with Gin. Not quite how 007 enjoyed it, but still delicious."
+      },
+      "mead": {
+            "name": "mead",
+            "desc": "A Viking's drink, though a cheap one."
+      },
+      "mojito": {
+            "name": "Mojito",
+            "desc": "If it's good enough for Spesscuba, it's good enough for you."
+      },
+      "monkey-business": {
+            "name": "monkey business",
+            "desc": "You’ve got to wonder how the monkeys feel about this drink."
+      },
+      "moonshine": {
+            "name": "moonshine",
+            "desc": "Artisanal homemade liquor. What could go wrong?"
+      },
+      "neurotoxin": {
+            "name": "neurotoxin",
+            "desc": "A strong neurotoxin that puts the subject into a death-like state."
+      },
+      "painkiller": {
+            "name": "painkiller",
+            "desc": "A cure for what ails you."
+      },
+      "patron": {
+            "name": "Patrón",
+            "desc": "Tequila with silver in it, a favorite of alcoholic women in the club scene."
+      },
+      "pina-colada": {
+            "name": "Piña Colada",
+            "desc": "For getting lost in the rain."
+      },
+      "radler": {
+            "name": "radler",
+            "desc": "A simple but staple classic, straight out of Space-Germany."
+      },
+      "red-mead": {
+            "name": "red mead",
+            "desc": "The true Viking's drink! Even though it has a strange red color."
+      },
+      "rewriter": {
+            "name": "Rewriter",
+            "desc": "The secret of the sanctuary of the Librarian..."
+      },
+      "sbiten": {
+            "name": "sbiten",
+            "desc": "A spicy Vodka! Might be a little hot for the little guys!"
+      },
+      "screwdriver-cocktail": {
+            "name": "screwdriver",
+            "desc": "Vodka, mixed with plain ol' orange juice. The result is surprisingly delicious."
+      },
+      "cogchamp": {
+            "name": "Cogchamp",
+            "desc": "Not even Ratvar's Four Generals could withstand this! Qevax Jryy!"
+      },
+      "silencer": {
+            "name": "silencer",
+            "desc": "A drink from Mime Heaven."
+      },
+      "singulo": {
+            "name": "singulo",
+            "desc": "A blue-space beverage!"
+      },
+      "snow-white": {
+            "name": "Snow White",
+            "desc": "A cold refreshment."
+      },
+      "sui-dream": {
+            "name": "sui dream",
+            "desc": "'Comprised of: White soda, blue Curaçao, melon liquor.'"
+      },
+      "syndicate-bomb": {
+            "name": "syndicate bomb",
+            "desc": "Somebody set us up the bomb!"
+      },
+      "tequila-sunrise": {
+            "name": "tequila sunrise",
+            "desc": "Tequila and orange juice. Much like a Screwdriver, only Mexican."
+      },
+      "three-mile-island": {
+            "name": "Three Mile Island iced tea",
+            "desc": "\"Made for a woman, strong enough for a man.\""
+      },
+      "toxins-special": {
+            "name": "toxins special",
+            "desc": "This thing is ON FIRE! CALL THE DAMN SHUTTLE!"
+      },
+      "vampiro": {
+            "name": "vampiro",
+            "desc": "Popular in Mexico and Transylvania. Not quite a vampire favorite though."
+      },
+      "vodka-martini": {
+            "name": "vodka martini",
+            "desc": "Vodka instead of Gin. Not quite how 007 enjoyed it, but still delicious."
+      },
+      "vodka-tonic": {
+            "name": "vodka tonic",
+            "desc": "For when a gin and tonic isn't russian enough."
+      },
+      "whiskey-cola": {
+            "name": "whiskey cola",
+            "desc": "Whiskey, mixed with cola. Surprisingly refreshing."
+      },
+      "whiskey-soda": {
+            "name": "whiskey soda",
+            "desc": "For the more refined griffon."
+      },
+      "white-gilgamesh": {
+            "name": "White Gilgamesh",
+            "desc": "A sickening mixture of milk and beer. Makes you feel like you're made of wood."
+      },
+      "white-russian": {
+            "name": "White Russian",
+            "desc": "That's just, like, your opinion, man..."
+      },
+      "vodka-red-bool": {
+            "name": "vodka red bool",
+            "desc": "Because heart failure and liver failure go hand in hand."
+      },
+      "xeno-basher": {
+            "name": "Xeno Basher",
+            "desc": "The perfect drink before an expedition."
+      },
+      "irish-bool": {
+            "name": "Irish bool",
+            "desc": "Like a bool in a Ireland shop."
+      },
+      "budget-insuls": {
+            "name": "budget insuls",
+            "desc": "A tider's preferred drink."
+      },
+      "watermelon-wakeup": {
+            "name": "watermelon wakeup",
+            "desc": "If you want to be awake, this will do it... Also sweet."
+      },
+      "rubberneck": {
+            "name": "rubberneck",
+            "desc": "A popular drink amongst those adhering to an all synthetic diet."
+      },
+      "caipirinha": {
+            "name": "caipirinha",
+            "desc": "The São Paulo special, straight from old Brazil."
+      },
+      "daiquiri": {
+            "name": "daiquiri",
+            "desc": "A classic rum cocktail which remains popular even in the cold reaches of space."
+      },
+      "death-in-the-afternoon": {
+            "name": "death in the afternoon",
+            "desc": "\"Pour one jigger absinthe into a Champagne glass. Add iced Champagne until it attains the proper opalescent milkiness. Drink three to five of these slowly.\" - Ernest Hemingway"
+      },
+      "empress-75": {
+            "name": "empress 75",
+            "desc": "A more refined take on the mimosa. Just the thing Marie Antoinette might've sipped on before the revolution."
+      },
+      "espresso-martini": {
+            "name": "espresso martini",
+            "desc": "To wake you up and wind you down. Garnished with coffee beans and icy-cold."
+      },
+      "mayojito": {
+            "name": "mayojito",
+            "desc": "An affront to god and man. Do not drink it."
+      },
+      "mimeosa": {
+            "name": "mimeosa",
+            "desc": "It has an orange tang so sour you just can't describe it."
+      },
+      "mimosa": {
+            "name": "mimosa",
+            "desc": "Perfect for a lively brunch out with the girls."
+      },
+      "moscow-mule": {
+            "name": "moscow mule",
+            "desc": "A surpsingly strong and refreshing mixed drink, served in an iconic copper mug."
+      },
+      "the-sun-also-rises": {
+            "name": "the sun also rises",
+            "desc": "A strong cocktail mixed into a murky blend. A secret favorite of tortured authors."
+      },
+      "whiskey-sour": {
+            "name": "whiskey sour",
+            "desc": "What's the secret ingredient? Eggs. It's eggs."
+      },
+      "zombiecocktail": {
+            "name": "Zombie",
+            "desc": "It gets in your head. Your he-eyeh-ead."
+      },
+      "bacchus-blessing": {
+            "name": "bacchus's blessing",
+            "desc": "You didn't think it was possible for a liquid to be so utterly revolting. Are you sure about this...?"
+      }
+};
+
+    const LOCALE_ID_ALIASES = {
+      "BudgetInsulsDrink": "budget-insuls",
+      "IcedBeerAlt": "iced-beer"
+    };
+
+    const BASE_DISPENSER_DRINKS = new Set([
+      "Vodka",
+      "Cola",
+      "Tea",
+      "SodaWater"
+    ]);
+
+    let selectedDrink = "AlienBrainHemorrhage";
+    let searchQuery = "";
+    let activeFilter = "all";
+    let expandedPaths = new Set();
+    let pinnedOrders = [];
+    let targetGlassSize = 30;
+
+    function toKebabCase(id) {
+      return id
+        .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+        .toLowerCase();
+    }
+
+    function formatDisplayTitle(rawStr) {
+      if (!rawStr) return "";
+      return rawStr.charAt(0).toUpperCase() + rawStr.slice(1);
+    }
+
+    function getLocaleEntry(id) {
+      if (!id) return null;
+      const aliasKey = LOCALE_ID_ALIASES[id];
+      if (aliasKey && LOCALE_MAP[aliasKey]) return LOCALE_MAP[aliasKey];
+
+      const kebab = toKebabCase(id);
+      if (LOCALE_MAP[kebab]) return LOCALE_MAP[kebab];
+
+      const flat = id.toLowerCase();
+      if (LOCALE_MAP[flat]) return LOCALE_MAP[flat];
+
+      return null;
+    }
+
+    function getDisplayName(id) {
+      const entry = getLocaleEntry(id);
+      if (entry && entry.name) {
+        return formatDisplayTitle(entry.name);
+      }
+      return id;
+    }
+
+    function getDrinkDescription(id) {
+      const entry = getLocaleEntry(id);
+      return entry && entry.desc ? entry.desc : "";
+    }
+
+    function formatUnitAmount(val) {
+      const rounded = Math.round(val * 100) / 100;
+      return String(rounded);
+    }
+
+    function getSpecialMethod(recipe) {
+      if (!recipe || !recipe.method) return "";
+      const m = recipe.method.trim();
+      if (!m || m.toLowerCase() === "mix" || m.toLowerCase() === "no action") return "";
+      return m;
+    }
+
+    function isCraftedDrink(name) {
+      if (BASE_DISPENSER_DRINKS.has(name)) {
+        return false;
+      }
+      return Object.prototype.hasOwnProperty.call(RECIPES, name);
+    }
+
+    function hasNestedSubDrinks(drinkName) {
+      const recipe = RECIPES[drinkName];
+      if (!recipe) return false;
+      return recipe.ingredients.some(ing => isCraftedDrink(ing.name));
+    }
+
+    function getNestingDepth(drinkName, visited = new Set()) {
+      if (visited.has(drinkName)) return 0;
+      const recipe = RECIPES[drinkName];
+      if (!recipe) return 0;
+      const nextVisited = new Set(visited);
+      nextVisited.add(drinkName);
+
+      let maxChildDepth = 0;
+      for (const ing of recipe.ingredients) {
+        if (isCraftedDrink(ing.name)) {
+          maxChildDepth = Math.max(maxChildDepth, 1 + getNestingDepth(ing.name, nextVisited));
+        }
+      }
+      return maxChildDepth;
+    }
+
+    function collectAllBranchPaths(drinkName, prefix = "root", visited = new Set()) {
+      const paths = [];
+      if (visited.has(drinkName)) return paths;
+      const recipe = RECIPES[drinkName];
+      if (!recipe) return paths;
+
+      const nextVisited = new Set(visited);
+      nextVisited.add(drinkName);
+
+      recipe.ingredients.forEach((ing, idx) => {
+        if (isCraftedDrink(ing.name)) {
+          const pathId = `${prefix}-${idx}-${ing.name}`;
+          paths.push(pathId);
+          paths.push(...collectAllBranchPaths(ing.name, pathId, nextVisited));
+        }
+      });
+      return paths;
+    }
+
+    function flattenToBaseIngredients(drinkName, multiplier = 1, visited = new Set()) {
+      const totals = {};
+      const recipe = RECIPES[drinkName];
+      if (!recipe || visited.has(drinkName)) {
+        totals[drinkName] = (totals[drinkName] || 0) + multiplier;
+        return totals;
+      }
+
+      const nextVisited = new Set(visited);
+      nextVisited.add(drinkName);
+
+      const totalParts = recipe.ingredients.reduce((sum, i) => sum + (i.catalyst ? 0 : i.amount), 0) || 1;
+
+      for (const ing of recipe.ingredients) {
+        if (ing.catalyst) {
+          totals[ing.name] = Math.max(totals[ing.name] || 0, ing.amount);
+          continue;
+        }
+        const scaledAmount = (ing.amount / totalParts) * multiplier;
+        if (isCraftedDrink(ing.name)) {
+          const subTotals = flattenToBaseIngredients(ing.name, scaledAmount, nextVisited);
+          for (const [baseName, amt] of Object.entries(subTotals)) {
+            totals[baseName] = (totals[baseName] || 0) + amt;
+          }
+        } else {
+          totals[ing.name] = (totals[ing.name] || 0) + scaledAmount;
+        }
+      }
+      return totals;
+    }
+
+    function showToast(msg) {
+      const box = document.getElementById("toastBox");
+      const text = document.getElementById("toastMessage");
+      text.textContent = msg;
+      box.classList.remove("opacity-0", "translate-y-2");
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        box.classList.add("opacity-0", "translate-y-2");
+      }, 2600);
+    }
+
+    function copyText(text) {
+      const tempInput = document.createElement("textarea");
+      tempInput.value = text;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      try {
+        document.execCommand("copy");
+        showToast(`Copied "${text}" to clipboard`);
+      } catch (err) {
+        showToast("Unable to copy text");
+      }
+      document.body.removeChild(tempInput);
+    }
+
+    function renderPinnedOrders() {
+      const container = document.getElementById("pinnedOrdersList");
+      if (pinnedOrders.length === 0) {
+        container.innerHTML = `<span class="text-xs text-slate-400 italic">No active orders pinned — click "Pin Order" on any drink to track customer orders.</span>`;
+        return;
+      }
+
+      container.innerHTML = pinnedOrders.map(drinkName => {
+        const isActive = drinkName === selectedDrink;
+        const displayName = getDisplayName(drinkName);
+        return `
+          <div class="inline-flex items-center rounded-lg border text-xs transition shrink-0 ${
+            isActive
+              ? "bg-teal-500/15 border-teal-500 text-teal-800 dark:text-nt-teal font-semibold"
+              : "bg-slate-100 dark:bg-nt-card border-slate-300 dark:border-nt-border text-slate-700 dark:text-slate-300 hover:border-teal-500/60"
+          }">
+            <button type="button" onclick="selectDrink('${drinkName}')" class="px-2.5 py-1 flex items-center gap-1.5">
+              <span>${displayName}</span>
+            </button>
+            <button type="button" onclick="togglePinOrder('${drinkName}')" title="Complete / Unpin Order" class="pr-2 pl-1 py-1 text-slate-400 hover:text-rose-500">
+              ✕
+            </button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderDrinkList() {
+      const listEl = document.getElementById("drinkList");
+      const allNames = Object.keys(RECIPES).sort((a, b) => getDisplayName(a).localeCompare(getDisplayName(b)));
+
+      const nestedCount = allNames.filter(n => hasNestedSubDrinks(n)).length;
+      const baseCount = allNames.length - nestedCount;
+      document.getElementById("countAll").textContent = allNames.length;
+      document.getElementById("countNested").textContent = nestedCount;
+      document.getElementById("countBase").textContent = baseCount;
+
+      const q = searchQuery.trim().toLowerCase();
+      const filtered = allNames.filter(name => {
+        const isNested = hasNestedSubDrinks(name);
+        if (activeFilter === "nested" && !isNested) return false;
+        if (activeFilter === "base" && isNested) return false;
+
+        if (!q) return true;
+        const disp = getDisplayName(name).toLowerCase();
+        if (name.toLowerCase().includes(q) || disp.includes(q)) return true;
+        return RECIPES[name].ingredients.some(ing => {
+          const ingDisp = getDisplayName(ing.name).toLowerCase();
+          return ing.name.toLowerCase().includes(q) || ingDisp.includes(q);
+        });
+      });
+
+      if (filtered.length === 0) {
+        listEl.innerHTML = `<div class="text-xs text-slate-400 text-center py-6">No matching drinks found.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = filtered.map(name => {
+        const isSelected = name === selectedDrink;
+        const isNested = hasNestedSubDrinks(name);
+        const depth = isNested ? getNestingDepth(name) : 0;
+        const displayName = getDisplayName(name);
+        const showProtoSub = displayName.toLowerCase().replace(/[^a-z0-9]/g, "") !== name.toLowerCase();
+
+        return `
+          <button
+            type="button"
+            onclick="selectDrink('${name}')"
+            class="w-full text-left px-3 py-2 rounded-xl text-sm flex items-center justify-between gap-2 transition ${
+              isSelected
+                ? "bg-teal-500/15 text-teal-800 dark:text-nt-teal border border-teal-500/40 font-semibold"
+                : "hover:bg-slate-100 dark:hover:bg-nt-card text-slate-700 dark:text-slate-300 border border-transparent"
+            }"
+          >
+            <div class="min-w-0">
+              <div class="truncate">${displayName}</div>
+              ${showProtoSub ? `<div class="text-[10px] font-mono text-slate-400 dark:text-slate-500 truncate">${name}</div>` : ""}
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              ${isNested ? `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-nt-amber border border-amber-500/30">${depth}x</span>` : ""}
+            </div>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function renderIngredientTree(drinkName, prefix = "root", depth = 0, visited = new Set()) {
+      const recipe = RECIPES[drinkName];
+      if (!recipe) return "";
+
+      if (visited.has(drinkName)) {
+        return `<div class="text-xs text-rose-400 font-mono pl-3">↻ Circular reference: ${drinkName}</div>`;
+      }
+
+      const nextVisited = new Set(visited);
+      nextVisited.add(drinkName);
+
+      return `
+        <ul class="space-y-2 ${depth > 0 ? "mt-2 pl-4 tree-branch" : ""}">
+          ${recipe.ingredients.map((ing, idx) => {
+            const isSubDrink = isCraftedDrink(ing.name);
+            const pathId = `${prefix}-${idx}-${ing.name}`;
+            const isExpanded = expandedPaths.has(pathId);
+            const subRecipe = isSubDrink ? RECIPES[ing.name] : null;
+            const subSpecialMethod = isSubDrink ? getSpecialMethod(subRecipe) : "";
+            const displayIngName = getDisplayName(ing.name);
+            const showProtoId = displayIngName.toLowerCase().replace(/[^a-z0-9]/g, "") !== ing.name.toLowerCase();
+
+            return `
+              <li class="rounded-xl transition ${
+                isSubDrink
+                  ? "bg-slate-50/90 dark:bg-nt-card/90 border border-slate-200/90 dark:border-nt-border p-3"
+                  : "px-3 py-2 rounded-lg bg-slate-50/50 dark:bg-nt-card/40 border border-transparent"
+              }">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center justify-center min-w-[2.2rem] px-2 py-0.5 rounded-md font-mono font-bold text-sm ${
+                      isSubDrink
+                        ? "bg-amber-500/15 text-amber-700 dark:text-nt-amber border border-amber-500/30"
+                        : "bg-slate-200/80 dark:bg-slate-800 text-slate-800 dark:text-slate-200"
+                    }">
+                      ${formatUnitAmount(ing.amount)}
+                    </span>
+
+                    <span class="font-semibold text-base ${
+                      isSubDrink
+                        ? "text-teal-700 dark:text-nt-teal"
+                        : "text-slate-800 dark:text-slate-100"
+                    }">
+                      ${displayIngName}
+                    </span>
+
+                    ${
+                      showProtoId
+                        ? `<span class="text-xs font-mono text-slate-400 dark:text-slate-500">(${ing.name})</span>`
+                        : ""
+                    }
+
+                    ${
+                      ing.catalyst
+                        ? `<span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                            Catalyst
+                          </span>`
+                        : ""
+                    }
+
+                    ${
+                      isSubDrink && subSpecialMethod
+                        ? `<span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-700 dark:text-nt-cyan border border-cyan-500/30">
+                            ${subSpecialMethod}
+                          </span>`
+                        : !isSubDrink && !ing.catalyst
+                          ? `<span class="text-[11px] font-mono text-slate-400 dark:text-slate-500">Base</span>`
+                          : ""
+                    }
+                  </div>
+
+                  ${
+                    isSubDrink
+                      ? `
+                        <div class="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onclick="toggleBranch('${pathId}')"
+                            class="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition flex items-center gap-1.5 shadow-2xs ${
+                              isExpanded
+                                ? "bg-teal-600 text-white"
+                                : "bg-teal-500/15 hover:bg-teal-500/25 text-teal-700 dark:text-nt-teal border border-teal-500/30"
+                            }"
+                          >
+                            <span>${isExpanded ? "▼ Hide Recipe" : "▶ + Sub-Recipe"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onclick="selectDrink('${ing.name}')"
+                            title="Jump directly to ${displayIngName}"
+                            class="p-1.5 rounded-lg text-xs text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition"
+                          >
+                            ↗
+                          </button>
+                        </div>
+                      `
+                      : ""
+                  }
+                </div>
+
+                ${
+                  isSubDrink && isExpanded
+                    ? `
+                      <div class="mt-2.5 pt-2.5 border-t border-slate-200/80 dark:border-nt-border/80">
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-slate-500 dark:text-slate-400 mb-1">
+                          <span>HOW TO MAKE <strong class="text-slate-700 dark:text-slate-200">${displayIngName}</strong>${subSpecialMethod ? ` (${subSpecialMethod})` : ""}:</span>
+                          <span>Ratio parts: ${subRecipe.ingredients.map(i => `${formatUnitAmount(i.amount)} ${getDisplayName(i.name)}`).join(" + ")}</span>
+                        </div>
+                        ${renderIngredientTree(ing.name, pathId, depth + 1, nextVisited)}
+                      </div>
+                    `
+                    : ""
+                }
+              </li>
+            `;
+          }).join("")}
+        </ul>
+      `;
+    }
+
+    function renderRecipeViewer() {
+      const viewer = document.getElementById("recipeViewer");
+      const recipe = RECIPES[selectedDrink];
+
+      if (!recipe) {
+        viewer.innerHTML = `<div class="p-8 text-center text-slate-400">Select a drink from the index to inspect its recipe.</div>`;
+        return;
+      }
+
+      const displayName = getDisplayName(selectedDrink);
+      const description = getDrinkDescription(selectedDrink);
+      const isPinned = pinnedOrders.includes(selectedDrink);
+      const allBranchPaths = collectAllBranchPaths(selectedDrink);
+      const hasSubRecipes = allBranchPaths.length > 0;
+      const allExpanded = hasSubRecipes && allBranchPaths.every(p => expandedPaths.has(p));
+      const specialMethod = getSpecialMethod(recipe);
+
+      const baseBatchTotal = recipe.ingredients.reduce((s, i) => s + (i.catalyst ? 0 : i.amount), 0) || 1;
+      const effectiveMultiplier = targetGlassSize === 0 ? baseBatchTotal : targetGlassSize;
+      const rawTotals = flattenToBaseIngredients(selectedDrink, effectiveMultiplier);
+      const baseEntries = Object.entries(rawTotals).sort((a, b) => b[1] - a[1]);
+
+      const usedInDrinks = Object.keys(RECIPES).filter(dName =>
+        RECIPES[dName].ingredients.some(i => i.name === selectedDrink)
+      );
+
+      viewer.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-4 pb-5 border-b border-slate-200 dark:border-nt-border">
+          <div class="max-w-2xl">
+            <div class="flex flex-wrap items-center gap-2.5">
+              <h2 class="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                ${displayName}
+              </h2>
+              <span class="px-2 py-0.5 rounded-md text-xs font-mono bg-slate-100 dark:bg-nt-card text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-nt-border">
+                ${selectedDrink}
+              </span>
+              <button
+                type="button"
+                onclick="copyText('${displayName}')"
+                title="Copy in-game drink name"
+                class="px-2 py-1 rounded-md text-xs font-mono bg-slate-100 dark:bg-nt-card hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-nt-border transition"
+              >
+                Copy Name
+              </button>
+            </div>
+
+            ${
+              description
+                ? `<p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 italic mt-1.5">"${description}"</p>`
+                : ""
+            }
+
+            <div class="flex flex-wrap items-center gap-2 mt-2.5 text-xs font-mono">
+              ${
+                specialMethod
+                  ? `<span class="px-2.5 py-0.5 rounded-md bg-cyan-500/15 text-cyan-700 dark:text-nt-cyan border border-cyan-500/30 font-semibold">
+                      ${specialMethod}
+                    </span>`
+                  : ""
+              }
+              <span class="px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-nt-card text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-nt-border">
+                Input: ${formatUnitAmount(baseBatchTotal)}u → Output: ${recipe.yield || baseBatchTotal}u
+              </span>
+              ${
+                hasSubRecipes
+                  ? `<span class="px-2.5 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-nt-amber border border-amber-500/30">
+                      Nested Depth: ${getNestingDepth(selectedDrink)} Tier${getNestingDepth(selectedDrink) > 1 ? "s" : ""}
+                    </span>`
+                  : ""
+              }
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            ${
+              hasSubRecipes
+                ? `
+                  <button
+                    type="button"
+                    onclick="toggleExpandAll()"
+                    class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition flex items-center gap-1.5 border ${
+                      allExpanded
+                        ? "bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200"
+                        : "bg-teal-600 hover:bg-teal-500 border-teal-500 text-white shadow-sm"
+                    }"
+                  >
+                    <span>${allExpanded ? "▲ Collapse All Sub-Recipes" : "▼ Expand All Sub-Recipes"}</span>
+                  </button>
+                `
+                : ""
+            }
+
+            <button
+              type="button"
+              onclick="togglePinOrder('${selectedDrink}')"
+              class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold border transition flex items-center gap-1.5 ${
+                isPinned
+                  ? "bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-nt-amber"
+                  : "bg-white dark:bg-nt-card border-slate-300 dark:border-nt-border hover:border-amber-500 text-slate-700 dark:text-slate-200"
+              }"
+            >
+              <span>${isPinned ? "📌 Pinned in Queue" : "📌 Pin Order"}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-5">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+              Recipe Ingredients & Inline Sub-Recipes
+            </h3>
+            ${
+              hasSubRecipes
+                ? `<span class="text-xs text-teal-600 dark:text-nt-teal font-medium">Click any highlighted sub-drink to unfold</span>`
+                : ""
+            }
+          </div>
+
+          ${renderIngredientTree(selectedDrink)}
+        </div>
+
+        <div class="mt-6 pt-5 border-t border-slate-200 dark:border-nt-border">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 class="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold">
+                Flattened Raw Dispenser Ingredients (Total Ratio)
+              </h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Exact base reagents needed if mixing from scratch:
+              </p>
+            </div>
+
+            <div class="inline-flex rounded-lg bg-slate-100 dark:bg-nt-card p-1 border border-slate-200 dark:border-nt-border text-xs font-mono">
+              ${[
+                { val: 0, label: "1x (Base)" },
+                { val: 30, label: "30u Glass" },
+                { val: 60, label: "60u Large" }
+              ].map(opt => `
+                <button
+                  type="button"
+                  onclick="setGlassSize(${opt.val})"
+                  class="px-2.5 py-1 rounded-md transition ${
+                    targetGlassSize === opt.val
+                      ? "bg-white dark:bg-slate-700 text-teal-700 dark:text-nt-teal font-bold shadow-2xs"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }"
+                >
+                  ${opt.label}
+                </button>
+              `).join("")}
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+            ${baseEntries.map(([reagent, amount]) => {
+              const formattedAmt = formatUnitAmount(amount);
+              const dispReagent = getDisplayName(reagent);
+              return `
+                <div class="px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-nt-card border border-slate-200/80 dark:border-nt-border flex items-center justify-between gap-2">
+                  <div class="min-w-0">
+                    <div class="text-xs sm:text-sm font-medium truncate text-slate-700 dark:text-slate-200" title="${dispReagent} (${reagent})">
+                      ${dispReagent}
+                    </div>
+                    ${dispReagent.toLowerCase().replace(/[^a-z0-9]/g, "") !== reagent.toLowerCase() ? `<div class="text-[10px] font-mono text-slate-400 truncate">${reagent}</div>` : ""}
+                  </div>
+                  <span class="font-mono text-xs sm:text-sm font-bold text-teal-700 dark:text-nt-teal shrink-0">
+                    ${formattedAmt}u
+                  </span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+
+        ${
+          usedInDrinks.length > 0
+            ? `
+              <div class="mt-6 pt-4 border-t border-slate-200 dark:border-nt-border">
+                <h3 class="text-xs font-mono uppercase tracking-wider text-slate-500 dark:text-slate-400 font-semibold mb-2.5">
+                  Used As An Ingredient In:
+                </h3>
+                <div class="flex flex-wrap gap-2">
+                  ${usedInDrinks.map(parentDrink => `
+                    <button
+                      type="button"
+                      onclick="selectDrink('${parentDrink}')"
+                      class="px-3 py-1.5 rounded-lg text-xs bg-slate-100 dark:bg-nt-card hover:bg-teal-500/15 text-slate-700 dark:text-slate-200 hover:text-teal-700 dark:hover:text-nt-teal border border-slate-200 dark:border-nt-border transition"
+                    >
+                      ${getDisplayName(parentDrink)} →
+                    </button>
+                  `).join("")}
+                </div>
+              </div>
+            `
+            : ""
+        }
+      `;
+    }
+
+    function renderAll() {
+      renderPinnedOrders();
+      renderDrinkList();
+      renderRecipeViewer();
+    }
+
+    window.selectDrink = function(drinkName) {
+      if (!RECIPES[drinkName]) return;
+      selectedDrink = drinkName;
+      expandedPaths.clear();
+      const firstLevel = RECIPES[drinkName].ingredients
+        .map((ing, idx) => (isCraftedDrink(ing.name) ? `root-${idx}-${ing.name}` : null))
+        .filter(Boolean);
+      firstLevel.forEach(p => expandedPaths.add(p));
+      renderAll();
+    };
+
+    window.toggleBranch = function(pathId) {
+      if (expandedPaths.has(pathId)) {
+        expandedPaths.delete(pathId);
+      } else {
+        expandedPaths.add(pathId);
+      }
+      renderRecipeViewer();
+    };
+
+    window.toggleExpandAll = function() {
+      const allPaths = collectAllBranchPaths(selectedDrink);
+      const allExpanded = allPaths.every(p => expandedPaths.has(p));
+      if (allExpanded) {
+        expandedPaths.clear();
+      } else {
+        allPaths.forEach(p => expandedPaths.add(p));
+      }
+      renderRecipeViewer();
+    };
+
+    window.togglePinOrder = function(drinkName) {
+      const idx = pinnedOrders.indexOf(drinkName);
+      if (idx >= 0) {
+        pinnedOrders.splice(idx, 1);
+      } else {
+        pinnedOrders.push(drinkName);
+      }
+      renderPinnedOrders();
+      renderRecipeViewer();
+    };
+
+    window.setGlassSize = function(size) {
+      targetGlassSize = size;
+      renderRecipeViewer();
+    };
+
+    window.copyText = copyText;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      expandedPaths.add("root-0-IrishCream");
+      renderAll();
+
+      const searchInput = document.getElementById("searchInput");
+      const btnClearSearch = document.getElementById("btnClearSearch");
+
+      searchInput.addEventListener("input", (e) => {
+        searchQuery = e.target.value;
+        btnClearSearch.classList.toggle("hidden", !searchQuery);
+        renderDrinkList();
+      });
+
+      btnClearSearch.addEventListener("click", () => {
+        searchQuery = "";
+        searchInput.value = "";
+        btnClearSearch.classList.add("hidden");
+        renderDrinkList();
+      });
+
+      document.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+          activeFilter = btn.dataset.filter;
+          document.querySelectorAll(".filter-btn").forEach(b => {
+            b.classList.remove("bg-teal-500/15", "text-teal-700", "dark:text-nt-teal", "border-teal-500/30");
+            b.classList.add("bg-slate-100", "dark:bg-nt-card", "text-slate-600", "dark:text-slate-400", "border-transparent");
+          });
+          btn.classList.remove("bg-slate-100", "dark:bg-nt-card", "text-slate-600", "dark:text-slate-400", "border-transparent");
+          btn.classList.add("bg-teal-500/15", "text-teal-700", "dark:text-nt-teal", "border-teal-500/30");
+          renderDrinkList();
+        });
+      });
+
+      const btnThemeToggle = document.getElementById("btnThemeToggle");
+      const themeIcon = document.getElementById("themeIcon");
+      btnThemeToggle.addEventListener("click", () => {
+        const isDark = document.documentElement.classList.toggle("dark");
+        themeIcon.textContent = isDark ? "☀️" : "🌙";
+      });
+    });
+  </script>
+</body>
+</html>
