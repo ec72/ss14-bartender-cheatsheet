@@ -6,6 +6,8 @@ If you ever tended the bar as a newbie bartender during a busy shift on Starligh
 
 I just wanted a page where I could unfold subrecipes with the main drink without going back and forth.
 
+https://ec72.github.io/ss14-bartender-cheatsheet/
+
 ## What it does
 
 * **Expandable Sub-Recipes:** Click **`+ Sub-Recipe`** on any mixed ingredient to see how it's made right there on the same screen.
