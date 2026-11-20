@@ -53,7 +53,7 @@
       border-radius: 2px;
     }
   </style>
-</>
+</head>
 <body class="bg-slate-50 text-slate-900 dark:bg-nt-bg dark:text-slate-100 font-sans min-h-screen flex flex-col transition-colors duration-200">
 
   <!-- Top Navigation & Utility Header -->
@@ -1115,7 +1115,92 @@
                   }
             ]
       },
-      "OrangeLimeSoda": {
+	  // Adding missing recipes and fixed CitrusBikeshed
+	  "DraganSpecial": {
+            "method": "",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "BacchusBlessing",
+                        "amount": 1
+                  },
+                  {
+                        "name": "WhiteRussian",
+                        "amount": 1
+                  },
+				  {
+                        "name": "AnaerobicBlood",
+                        "amount": 1
+                  }
+            ]
+      },
+	  "Smite": {
+            "method": "Stir",
+            "yield": 3,
+            "ingredients": [
+                  {
+                        "name": "JuiceLemon",
+                        "amount": 1
+                  },
+                  {
+                        "name": "JuiceLime",
+                        "amount": 1
+                  },
+                  {
+                        "name": "SodaWater",
+                        "amount": 1
+                  }
+            ]
+      },
+	  "TheHighlander": {
+            "method": "",
+            "yield": 2,
+            "ingredients": [
+                  {
+                        "name": "BacchusBlessing",
+                        "amount": 2
+                  },
+                  {
+                        "name": "AtomicBomb",
+                        "amount": 2
+                  },
+                  {
+                        "name": "LongIslandIcedTea",
+                        "amount": 2
+                  },
+                  {
+                        "name": "DoctorsDelight",
+                        "amount": 2
+                  },
+                  {
+                        "name": "Omnizine",
+                        "amount": 1
+                  }
+            ]
+      },
+	  "TheLastCall": {
+            "method": "",
+            "yield": 6,
+            "ingredients": [
+                  {
+                        "name": "Vampiro",
+                        "amount": 2
+                  },
+                  {
+                        "name": "JackRose",
+                        "amount": 2
+                  },
+                  {
+                        "name": "ToxinsSpecial",
+                        "amount": 1
+                  },
+                  {
+                        "name": "PoisonWine",
+                        "amount": 1
+                  }
+            ]
+      },
+      "CitrusBikeshed": {
             "method": "Stir",
             "yield": 3,
             "ingredients": [
@@ -2143,6 +2228,26 @@
      * In-Game Display Names & Descriptions from alcohol.ftl
      */
     const LOCALE_MAP = {
+      "citrus-bikeshed": {
+            "name": "citrus bikeshed",
+            "desc": "A refreshing citrus soda blend."
+      },
+      "dragan-special": {
+            "name": "Dragan's Special",
+            "desc": "A potent cocktail fit for an operative."
+      },
+      "smite": {
+            "name": "Smite",
+            "desc": "A zesty lemon-lime refresher."
+      },
+      "the-highlander": {
+            "name": "The Highlander",
+            "desc": "There can be only one."
+      },
+      "the-last-call": {
+            "name": "The Last Call",
+            "desc": "One for the road—or the medbay."
+      },
       "absinthe": {
             "name": "absinthe",
             "desc": "A anise-flavoured spirit derived from botanicals."
